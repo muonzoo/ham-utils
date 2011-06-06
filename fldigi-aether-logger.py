@@ -2,6 +2,9 @@
 
 # Copyright (C) 2011, Alan Hawrylyshen (K2ACK)
 # All rights reserved.
+#
+# Contact : k2ack@arrl.net
+#
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -51,15 +54,22 @@
 # --test and --debug to use the built in test data. You should see an
 # RTTY log entry created for W1AX.
 #
+
 import os
 
 fl_env_prefix='FLDIGI_'
 
-def identity(x):
-    return x
+def identity(x):    return x
+def freq_fmt(s):    return "%11.7g"%(float(s)/1e6,)
 
-def freq_fmt(s):
-    return "%11.7g"%(float(s)/1e6,)
+
+
+
+
+
+
+# I tried to standardize the modes a little, you might want to just
+# return s or modify this to be more sophisticated.
 
 def mode_fmt(s):
     if 'PSK' in s.upper():
@@ -67,31 +77,39 @@ def mode_fmt(s):
     elif 'RTTY' in s.upper():
         return 'RTTY'
     else:
-        return 'HELL'
+        return s
 
 
+# Pull things from the environment dict for logging.
 def env_to_dict(e,debug=False):
-
     env_to_aether = { fl_env_prefix + 'FREQUENCY' : ( 'freq', freq_fmt ),
                       fl_env_prefix + 'MODEM' :  ('mode', mode_fmt ),
                       fl_env_prefix + 'LOG_CALL' : ('call', identity ),
                       fl_env_prefix + 'LOG_RST_IN' : ('rst_in', identity),
                       fl_env_prefix + 'LOG_RST_OUT' : ('rst_out', identity),
                   }
+
     if debug:
+        # show all env entries that start with the fldigi prefix
         for k in e:
             if k[:len(fl_env_prefix)] == fl_env_prefix:
                 print k, " : ", e[k]
+
     simple_dict = dict()
     for k in env_to_aether:
         if e.has_key(k):
+            # if the environ has the key, add it to our dict after processing with
+            # the function specified in the env_to_aether table 
             simple_dict[env_to_aether[k][0]] = env_to_aether[k][1](e[k])
         else:
+            # assume all the above are mandatory for now
             raise Exception('missing mandatory environment var',k)
     return simple_dict
 
 def inform_aether(qso,debug=False):
+    from os import system
     # QSO is a dict
+    # using a template library seemed like overkill, but this is ugly
     osacmd = """osascript << END
 tell application "Aether"
       try
@@ -103,7 +121,6 @@ tell application "Aether"
 			set newQSO's mode to "%s"
                         set newQSO's transmitted rst to "%s"
                         set newQSO's received rst to "%s"
-                        set newQSO's power to 5
 			lookup newQSO
 		end tell
 	on error errMsg number errNum
@@ -116,21 +133,30 @@ END
     osacmd = osacmd % (qso['call'], qso['freq'], qso['mode'],qso['rst_out'],qso['rst_in'],)
     if debug:
         print osacmd
-    os.system(osacmd)
+
+    return system(osacmd)
 
 
+# Used just for test processing, subst the environment for this, hard coded stuff
+# Generate a reasonable dict.
 def test_dict() :
     test_vals = { 'FREQUENCY' : '14070000', 'MODEM' : 'RTTY', 'LOG_CALL': 'W1AX',
                   'LOG_RST_IN' : '59', 'LOG_RST_OUT' : '45' }
     d = dict()
     for k in test_vals:
         d[fl_env_prefix+k] = test_vals[k]
+    if debug:
+        print d
     return d
 
 if __name__ == '__main__':
-    debug = False
-    d = os.environ
+    from os import environ
     from sys import argv
+
+    debug = False
+
+    d = environ
+
     while len(argv) > 1:
         if argv[1] == '--test':
             d = test_dict()
@@ -138,4 +164,4 @@ if __name__ == '__main__':
             debug = True
         argv = argv[1:]
 
-    inform_aether(env_to_dict(d,debug=debug),debug=debug)
+    inform_aether( env_to_dict(d,debug=debug), debug=debug)
