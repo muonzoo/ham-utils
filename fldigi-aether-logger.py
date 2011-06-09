@@ -36,8 +36,7 @@
 #
 # Here is the macro text I use:
 #
-# <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py</EXEC>
-#
+# <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py & </EXEC>
 #
 # If you run this with --debug (modify the macro), you should see
 # useful debugging info in the transmit window.
