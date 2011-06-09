@@ -32,20 +32,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 #
-# This script can be called from fldigi on a Mac platform using a macro
-# button.
+# See README.rst file distributed with this script.
 #
 # Here is the macro text I use:
 #
-# <EXEC>$HOME/bin/fldigi-aether-logger.py</EXEC>
+# <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py</EXEC>
 #
-# This presumes that this script is called fldigi-aether-logger.py AND
-# That this script is in $HOME/bin with the execute bit set.
-#
-#  chmod 755 ~/bin/fldigi-aether-logger.py
-#
-# man 1 chmod 
-# for more.
 #
 # If you run this with --debug (modify the macro), you should see
 # useful debugging info in the transmit window.
@@ -106,10 +98,11 @@ def env_to_dict(e,debug=False):
             raise Exception('missing mandatory environment var',k)
     return simple_dict
 
-def inform_aether(qso,debug=False):
+def inform_aether(qso,debug=False,launch=True):
     from os import system
     # QSO is a dict
     # using a template library seemed like overkill, but this is ugly
+    system('open -a Aether')
     osacmd = """osascript << END
 tell application "Aether"
       try
@@ -163,5 +156,5 @@ if __name__ == '__main__':
         elif argv[1] == '--debug':
             debug = True
         argv = argv[1:]
-
-    inform_aether( env_to_dict(d,debug=debug), debug=debug)
+    
+    inform_aether( env_to_dict(d,debug=debug), debug=debug,launch=True)
