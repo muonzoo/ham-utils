@@ -21,7 +21,7 @@ Here is the macro text I use:
 This presumes that this script is called fldigi-aether-logger.py AND
 That this script is in $HOME/bin with the execute bit set.
 
- chmod 755 $HOME/.fldigi/script/fldigi-aether-logger.py
+ chmod 755 $HOME/.fldigi/scripts/fldigi-aether-logger.py
 
 for more:
 
