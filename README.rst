@@ -19,8 +19,9 @@ script or understand Python_ to make this work for you.
 Here is the macro text I use in the fldigi_ macro.:
 
 
- <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py</EXEC>
+ <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py & </EXEC>
 
+The above macro can be directly copied into your Log QSO Macro definition window in fldigi_.
 
 This presumes that this script is called fldigi-aether-logger.py AND
 That this script is in $HOME/.fldigi/scripts with the execute bit set.
