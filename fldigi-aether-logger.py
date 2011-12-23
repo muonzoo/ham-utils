@@ -90,7 +90,7 @@ def env_to_dict(e):
         # show all env entries that start with the fldigi prefix
         for k in e:
             if k[:len(fl_env_prefix)] == fl_env_prefix:
-                print k, " : ", e[k]
+                trace('%s \t:\t%s'%(k,e[k],))
 
     simple_dict = dict()
     for k in env_to_aether:
