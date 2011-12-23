@@ -23,6 +23,23 @@ Here is the macro text I use in the fldigi_ macro.:
 
 The above macro can be directly copied into your Log QSO Macro definition window in fldigi_.
 
+Arguments
+---------
+
+--no-launch:
+  Do not start Aether from the script - assume it is already running.
+
+--test:
+  Use internal test data to validate the script from the command line.
+
+--launch:
+  Force Aether to launch - default behavior.
+
+--debug:
+  Print out key information of script execution on stdout, will appear
+  in fldigi window.
+
+
 This presumes that this script is called fldigi-aether-logger.py AND
 That this script is in $HOME/.fldigi/scripts with the execute bit set.
 
