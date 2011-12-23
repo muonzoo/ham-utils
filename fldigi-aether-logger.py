@@ -48,18 +48,19 @@
 
 import os
 
+debug=False
+
 fl_env_prefix='FLDIGI_'
 
 def identity(x):    return x
 def freq_fmt(s):    return "%11.7g"%(float(s)/1e6,)
 
-
-def trace(message=None,debug=True):
-    import inspect
-    if debug:
+def trace(message=None,force=False):
+    if debug or force:
+        import inspect
         print "TR: ",inspect.currentframe().f_back.f_lineno,
-    if not message is None:
-        print ':',message
+        if not message is None:
+            print ':',message
 
 # I tried to standardize the modes a little, you might want to just
 # return s or modify this to be more sophisticated.
@@ -74,7 +75,7 @@ def mode_fmt(s):
 
 
 # Pull things from the environment dict for logging.
-def env_to_dict(e,debug=False):
+def env_to_dict(e):
     env_to_aether = { fl_env_prefix + 'FREQUENCY' : ( 'freq', freq_fmt ),
                       fl_env_prefix + 'MODEM' :  ('mode', mode_fmt ),
                       fl_env_prefix + 'LOG_CALL' : ('call', identity ),
@@ -109,10 +110,10 @@ def inform_aether(qso,debug=False,launch=True):
     from os import system
     # QSO is a dict
     # using a template library seemed like overkill, but this is ugly
-    trace('pre-open')
     if launch:
+        trace('telling Finder to open Aether')
         system('open -a Aether')
-    trace('post-open')
+        trace('post-open')
     osacmd = """osascript << END
 tell application "Aether"
       try
@@ -124,9 +125,6 @@ tell application "Aether"
                         set newQSO's mode to "%s"
                         set newQSO's transmitted rst to "%s"
                         set newQSO's received rst to "%s"
-                        set newQSO's received exchange "%s"
-                        set newQSO's transmitted exchange "%s"
-
                         lookup newQSO
                 end tell
         on error errMsg number errNum
@@ -136,7 +134,6 @@ end tell
 
 END
 """
-    trace('post osacmd')
     trace(message=str(qso))
     osacmd = osacmd % (qso['call'], qso['freq'], qso['mode'],qso['rst_out'],
                        qso['rst_in'],)
@@ -165,6 +162,7 @@ if __name__ == '__main__':
     from sys import argv
 
     debug = False
+    launch_arg = True
 
     d = environ
     trace()
@@ -172,15 +170,18 @@ if __name__ == '__main__':
     while len(argv) > 1:
         if argv[1] == '--test':
             if debug:
-                print "test mode"
+                trace("test mode enabled",force=True)
             d = test_dict()
         elif argv[1] == '--debug':
-            print "debugging"
             debug = True
+            trace(message="debugging mode enabled",force=True)
+        elif argv[1] == '--launch':
+            launch_arg = True
+            trace('will launch aether')
+        elif argv[1] == '--no-launch':
+            trace('will not launch aether')
+            launch_arg = False
         argv = argv[1:]
-
-    trace()
-    inform_aether( env_to_dict(d,debug=False), debug=debug,launch=True)
-    if debug:
-        print "exiting"
-    trace()
+    trace('finished arg processing')
+    inform_aether( env_to_dict(d), launch=launch_arg)
+    trace('exiting')
