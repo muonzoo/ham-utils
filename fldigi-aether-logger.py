@@ -3,7 +3,7 @@
 # Copyright (C) 2011, Alan Hawrylyshen (K2ACK)
 # All rights reserved.
 #
-# Contact : k2ack@arrl.net
+# Contact : k2ack@polyphase.ca
 #
 
 # Redistribution and use in source and binary forms, with or without
@@ -54,10 +54,12 @@ def identity(x):    return x
 def freq_fmt(s):    return "%11.7g"%(float(s)/1e6,)
 
 
-
-
-
-
+def trace(message=None,debug=True):
+    import inspect
+    if debug:
+        print "TR: ",inspect.currentframe().f_back.f_lineno,
+    if not message is None:
+        print ':',message
 
 # I tried to standardize the modes a little, you might want to just
 # return s or modify this to be more sophisticated.
@@ -78,8 +80,11 @@ def env_to_dict(e,debug=False):
                       fl_env_prefix + 'LOG_CALL' : ('call', identity ),
                       fl_env_prefix + 'LOG_RST_IN' : ('rst_in', identity),
                       fl_env_prefix + 'LOG_RST_OUT' : ('rst_out', identity),
+#                      fl_env_prefix + '' : ('c_in', identity),
+#                      fl_env_prefix + '' : ('c_in', identity),
                   }
 
+    trace('env_to_dict()')
     if debug:
         # show all env entries that start with the fldigi prefix
         for k in e:
@@ -90,43 +95,57 @@ def env_to_dict(e,debug=False):
     for k in env_to_aether:
         if e.has_key(k):
             # if the environ has the key, add it to our dict after processing with
-            # the function specified in the env_to_aether table 
+            # the function specified in the env_to_aether table
             simple_dict[env_to_aether[k][0]] = env_to_aether[k][1](e[k])
         else:
+            trace('missing important variable %s'%(k,))
             # assume all the above are mandatory for now
             raise Exception('missing mandatory environment var',k)
+    trace('~env_to_dict()')
     return simple_dict
 
 def inform_aether(qso,debug=False,launch=True):
+    trace('inform_aether()')
     from os import system
     # QSO is a dict
     # using a template library seemed like overkill, but this is ugly
-    system('open -a Aether')
+    trace('pre-open')
+    if launch:
+        system('open -a Aether')
+    trace('post-open')
     osacmd = """osascript << END
 tell application "Aether"
       try
-		activate
-		tell document 1
-			set newQSO to make new qso with properties {callsign:"%s"}
-			set selection to newQSO
-			set newQSO's frequency to %s 
-			set newQSO's mode to "%s"
+                activate
+                tell document 1
+                        set newQSO to make new qso with properties {callsign:"%s"}
+                        set selection to newQSO
+                        set newQSO's frequency to %s
+                        set newQSO's mode to "%s"
                         set newQSO's transmitted rst to "%s"
                         set newQSO's received rst to "%s"
-			lookup newQSO
-		end tell
-	on error errMsg number errNum
-		display alert "AppleScript Error" message errMsg &  " (" & errNum & ")" buttons {"OK"} default button "OK"
-	end try
+                        set newQSO's received exchange "%s"
+                        set newQSO's transmitted exchange "%s"
+
+                        lookup newQSO
+                end tell
+        on error errMsg number errNum
+                display alert "AppleScript Error" message errMsg &  " (" & errNum & ")" buttons {"OK"} default button "OK"
+        end try
 end tell
 
 END
 """
-    osacmd = osacmd % (qso['call'], qso['freq'], qso['mode'],qso['rst_out'],qso['rst_in'],)
-    if debug:
-        print osacmd
-
-    return system(osacmd)
+    trace('post osacmd')
+    trace(message=str(qso))
+    osacmd = osacmd % (qso['call'], qso['freq'], qso['mode'],qso['rst_out'],
+                       qso['rst_in'],)
+    #,qso['x_out'],qso['x_in'])  # -- unsupported Exch vars in
+    #environment :-(
+    trace(osacmd)
+    rval = system(osacmd)
+    trace(message='~inform_aether(%d)'%(rval,))
+    return rval
 
 
 # Used just for test processing, subst the environment for this, hard coded stuff
@@ -148,12 +167,20 @@ if __name__ == '__main__':
     debug = False
 
     d = environ
+    trace()
 
     while len(argv) > 1:
         if argv[1] == '--test':
+            if debug:
+                print "test mode"
             d = test_dict()
         elif argv[1] == '--debug':
+            print "debugging"
             debug = True
         argv = argv[1:]
-    
-    inform_aether( env_to_dict(d,debug=debug), debug=debug,launch=True)
+
+    trace()
+    inform_aether( env_to_dict(d,debug=False), debug=debug,launch=True)
+    if debug:
+        print "exiting"
+    trace()
