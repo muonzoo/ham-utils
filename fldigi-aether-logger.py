@@ -70,7 +70,7 @@ def mode_fmt(s):
     return s
 
 # Pull things from the environment dict for logging.
-
+# Examples:
 #TR:  93 : FLDIGI_DIAL_FREQUENCY        :	14076000
 #TR:  93 : FLDIGI_MODEM_LONG_NAME       :	MFSK-4
 #TR:  93 : FLDIGI_AUDIO_FREQUENCY       :	3039
@@ -91,7 +91,7 @@ def mode_fmt(s):
 #TR:  93 : FLDIGI_LOG_NOTES     :
 
 def osa_preamble():
-    return "tell application \"Aether\"\ntry\n\tactivate\n\ttell document 1\n\t\tset newQSO to make new qso\n\t\tset callbook to newQSO's callbook info\n"
+    return "tell application \"Aether\"\ntry\n\tactivate\n\ttell document 1\n\t\tset newQSO to make new qso\n\t\tset selection to newQSO\n"
 
 def osa_set_callsign(code,prop,value):
     return osa_lookup_qso(osa_set_property(code,prop,value))
@@ -100,17 +100,18 @@ def osa_set_property(code,prop,value):
     return "%s\t\tset newQSO's %s to \"%s\"\n"%(code,prop,value,)
 
 def osa_set_cb_property(code,prop,value):
+    trace()
     return "%s\t\tset callbook's %s to \"%s\"\n"%(code,prop,value,)
 
 def osa_lookup_qso(code):
     trace('osa_lookup_qso')
-    return "%s\t\tlookup newQSO\n"%(code,)
+    return "%s\t\tlookup newQSO\n\t\tset callbook to newQSO's callbook info\n"%(code,)
 
 def osa_postamble(code):
     return "%s\tend tell\n\ton error errMsg number errNum\n\t\tdisplay alert \"AppleScript Error\" message errMsg &  \" (\" & errNum & \")\" buttons {\"OK\"} default button \"OK\"\n\tend try\nend tell\n"%(code,)
 
 def osa_collect_property(code, prop, value):
-    return "%s\t\t\t--%s:%s\n"%(code,propvalue,)
+    return "%s\t\t\t--%s:%s\n"%(code,prop,value,)
 
 def inform_aether(env,debug=False,launch=True):
     trace('inform_aether()')
@@ -122,7 +123,6 @@ def inform_aether(env,debug=False,launch=True):
         system('open -a Aether')
         trace('post-open')
 
-    callsign_env = fl_env_prefix + 'LOG_CALL'
     pre_lookup_env_to_aether = {
                       fl_env_prefix + 'FREQUENCY' :
                        ( freq_fmt, osa_set_property, {'prop':'frequency'} ),
@@ -136,37 +136,44 @@ def inform_aether(env,debug=False,launch=True):
                        (identity,osa_collect_property,{'prop':'note'}),
                         }
 
-    callsign_actions = {callsign_env:
+    callsign_actions = {fl_env_prefix+'LOG_CALL':
                         (callsign_fmt,osa_set_callsign,{'prop':'callsign'})}
 
-    post_lookup_env_to_aether = { fl_env_prefix + 'LOG_NOTES' :
-                      (identity,osa_collect_property,{'prop':'note'}),
-                      fl_env_prefix + 'LOG_LOCATOR' :
-                      (identity,osa_set_cb_property,{'prop','grid square'})
-                  }
+    post_lookup_env_to_aether = {
+      fl_env_prefix + 'LOG_NOTES' :
+      (identity,osa_collect_property,{'prop':'note'}),
+      fl_env_prefix + 'LOG_MODEM_LONG_NAME' :
+      (identity,osa_collect_property,{'prop':'note'}),
+      fl_env_prefix + 'LOG_LOCATOR' :
+      (identity,osa_set_cb_property,{'prop':'grid square'})
+    }
 
     if debug:
-        for k in e:
+        for k in env:
             if k[:len(fl_env_prefix)] == fl_env_prefix:
-                trace('%s \t:\t%s'%(k,e[k],))
+                trace('%s \t:\t%s'%(k,env[k],))
 
     script = osa_preamble()
     csp = False
 
+    trace()
+
     for d in [ pre_lookup_env_to_aether,
                callsign_actions,
                post_lookup_env_to_aether ]:
+        trace()
         for k in d:
-            trace(k)
+            trace()
             if k in env:
                 trace("processing %s"%(k,))
                 e2a=d[k]
+                trace(str(e2a[2]))
                 script = e2a[1](code=script,
                                 value = e2a[0](env[k]),**e2a[2])
+
+    trace()
     script = osa_postamble(script)
-
     osacmd = "osascript << END\n%s\nEND"%(script,)
-
     trace(osacmd)
     rval = system(osacmd)
     trace(message='~inform_aether(%d)'%(rval,))
@@ -211,5 +218,5 @@ if __name__ == '__main__':
             launch_arg = False
         argv = argv[1:]
     trace('finished arg processing')
-    inform_aether( d, launch=launch_arg)
+    inform_aether( d, launch=launch_arg,debug=debug)
     trace('exiting')
