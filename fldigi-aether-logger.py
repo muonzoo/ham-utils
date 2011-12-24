@@ -49,11 +49,12 @@
 import os
 
 debug=False
+mandatory=False
 
 fl_env_prefix='FLDIGI_'
-
-def identity(x):    return x
-def freq_fmt(s):    return "%11.7g"%(float(s)/1e6,)
+def callsign_fmt(s): return s.strip()
+def identity(x):     return x
+def freq_fmt(s):     return "%11.7f"%(float(s)/1e6,)
 
 def trace(message=None,force=False):
     if debug or force:
@@ -66,46 +67,52 @@ def trace(message=None,force=False):
 # return s or modify this to be more sophisticated.
 
 def mode_fmt(s):
-    if 'PSK' in s.upper():
-        return 'PSK31'
-    elif 'RTTY' in s.upper():
-        return 'RTTY'
-    else:
-        return s
-
+    return s
 
 # Pull things from the environment dict for logging.
-def env_to_dict(e):
-    env_to_aether = { fl_env_prefix + 'FREQUENCY' : ( 'freq', freq_fmt ),
-                      fl_env_prefix + 'MODEM' :  ('mode', mode_fmt ),
-                      fl_env_prefix + 'LOG_CALL' : ('call', identity ),
-                      fl_env_prefix + 'LOG_RST_IN' : ('rst_in', identity),
-                      fl_env_prefix + 'LOG_RST_OUT' : ('rst_out', identity),
-#                      fl_env_prefix + '' : ('c_in', identity),
-#                      fl_env_prefix + '' : ('c_in', identity),
-                  }
 
-    trace('env_to_dict()')
-    if debug:
-        # show all env entries that start with the fldigi prefix
-        for k in e:
-            if k[:len(fl_env_prefix)] == fl_env_prefix:
-                trace('%s \t:\t%s'%(k,e[k],))
+#TR:  93 : FLDIGI_DIAL_FREQUENCY        :	14076000
+#TR:  93 : FLDIGI_MODEM_LONG_NAME       :	MFSK-4
+#TR:  93 : FLDIGI_AUDIO_FREQUENCY       :	3039
+#TR:  93 : FLDIGI_LOG_RST_IN    :	In
+#TR:  93 : FLDIGI_LOG_NAME      :	Name
+#TR:  93 : FLDIGI_LOG_RST_OUT   :	Out
+#TR:  93 : FLDIGI_LOG_FREQUENCY         :	14079.039
+#TR:  93 : FLDIGI_MY_CALL       :	K2ACK
+#TR:  93 : FLDIGI_LOG_TIME_OFF  :	1856
+#TR:  93 : FLDIGI_LOG_QTH       :
+#TR:  93 : FLDIGI_LOG_TIME_ON   :	1853
+#TR:  93 : FLDIGI_MY_LOCATOR    :	CM86xx
+#TR:  93 : FLDIGI_FREQUENCY     :	14079039
+#TR:  93 : FLDIGI_LOG_LOCATOR   :
+#TR:  93 : FLDIGI_VERSION       :	3.21.33
+#TR:  93 : FLDIGI_MODEM         :	MFSK4
+#TR:  93 : FLDIGI_LOG_CALL      :	N0CALL
+#TR:  93 : FLDIGI_LOG_NOTES     :
 
-    simple_dict = dict()
-    for k in env_to_aether:
-        if e.has_key(k):
-            # if the environ has the key, add it to our dict after processing with
-            # the function specified in the env_to_aether table
-            simple_dict[env_to_aether[k][0]] = env_to_aether[k][1](e[k])
-        else:
-            trace('missing important variable %s'%(k,))
-            # assume all the above are mandatory for now
-            raise Exception('missing mandatory environment var',k)
-    trace('~env_to_dict()')
-    return simple_dict
+def osa_preamble():
+    return "tell application \"Aether\"\ntry\n\tactivate\n\ttell document 1\n\t\tset newQSO to make new qso\n\t\tset callbook to newQSO's callbook info\n"
 
-def inform_aether(qso,debug=False,launch=True):
+def osa_set_callsign(code,prop,value):
+    return osa_lookup_qso(osa_set_property(code,prop,value))
+
+def osa_set_property(code,prop,value):
+    return "%s\t\tset newQSO's %s to \"%s\"\n"%(code,prop,value,)
+
+def osa_set_cb_property(code,prop,value):
+    return "%s\t\tset callbook's %s to \"%s\"\n"%(code,prop,value,)
+
+def osa_lookup_qso(code):
+    trace('osa_lookup_qso')
+    return "%s\t\tlookup newQSO\n"%(code,)
+
+def osa_postamble(code):
+    return "%s\tend tell\n\ton error errMsg number errNum\n\t\tdisplay alert \"AppleScript Error\" message errMsg &  \" (\" & errNum & \")\" buttons {\"OK\"} default button \"OK\"\n\tend try\nend tell\n"%(code,)
+
+def osa_collect_property(code, prop, value):
+    return "%s\t\t\t--%s:%s\n"%(code,propvalue,)
+
+def inform_aether(env,debug=False,launch=True):
     trace('inform_aether()')
     from os import system
     # QSO is a dict
@@ -114,31 +121,52 @@ def inform_aether(qso,debug=False,launch=True):
         trace('telling Finder to open Aether')
         system('open -a Aether')
         trace('post-open')
-    osacmd = """osascript << END
-tell application "Aether"
-      try
-                activate
-                tell document 1
-                        set newQSO to make new qso with properties {callsign:"%s"}
-                        set selection to newQSO
-                        set newQSO's frequency to %s
-                        set newQSO's mode to "%s"
-                        set newQSO's transmitted rst to "%s"
-                        set newQSO's received rst to "%s"
-                        lookup newQSO
-                end tell
-        on error errMsg number errNum
-                display alert "AppleScript Error" message errMsg &  " (" & errNum & ")" buttons {"OK"} default button "OK"
-        end try
-end tell
 
-END
-"""
-    trace(message=str(qso))
-    osacmd = osacmd % (qso['call'], qso['freq'], qso['mode'],qso['rst_out'],
-                       qso['rst_in'],)
-    #,qso['x_out'],qso['x_in'])  # -- unsupported Exch vars in
-    #environment :-(
+    callsign_env = fl_env_prefix + 'LOG_CALL'
+    pre_lookup_env_to_aether = {
+                      fl_env_prefix + 'FREQUENCY' :
+                       ( freq_fmt, osa_set_property, {'prop':'frequency'} ),
+                      fl_env_prefix + 'MODEM' :
+                       ( mode_fmt, osa_set_property, {'prop':'mode'}),
+                      fl_env_prefix + 'LOG_RST_IN' :
+                       (identity,osa_set_property , {'prop':'received rst'}),
+                      fl_env_prefix + 'LOG_RST_OUT' :
+                       (identity,osa_set_property,{'prop':'transmitted rst'}),
+                      fl_env_prefix + 'LOG_TIME_ON' :
+                       (identity,osa_collect_property,{'prop':'note'}),
+                        }
+
+    callsign_actions = {callsign_env:
+                        (callsign_fmt,osa_set_callsign,{'prop':'callsign'})}
+
+    post_lookup_env_to_aether = { fl_env_prefix + 'LOG_NOTES' :
+                      (identity,osa_collect_property,{'prop':'note'}),
+                      fl_env_prefix + 'LOG_LOCATOR' :
+                      (identity,osa_set_cb_property,{'prop','grid square'})
+                  }
+
+    if debug:
+        for k in e:
+            if k[:len(fl_env_prefix)] == fl_env_prefix:
+                trace('%s \t:\t%s'%(k,e[k],))
+
+    script = osa_preamble()
+    csp = False
+
+    for d in [ pre_lookup_env_to_aether,
+               callsign_actions,
+               post_lookup_env_to_aether ]:
+        for k in d:
+            trace(k)
+            if k in env:
+                trace("processing %s"%(k,))
+                e2a=d[k]
+                script = e2a[1](code=script,
+                                value = e2a[0](env[k]),**e2a[2])
+    script = osa_postamble(script)
+
+    osacmd = "osascript << END\n%s\nEND"%(script,)
+
     trace(osacmd)
     rval = system(osacmd)
     trace(message='~inform_aether(%d)'%(rval,))
@@ -183,5 +211,5 @@ if __name__ == '__main__':
             launch_arg = False
         argv = argv[1:]
     trace('finished arg processing')
-    inform_aether( env_to_dict(d), launch=launch_arg)
+    inform_aether( d, launch=launch_arg)
     trace('exiting')
