@@ -54,14 +54,17 @@ mandatory=False
 fl_env_prefix='FLDIGI_'
 def callsign_fmt(s): return s.strip()
 def identity(x):     return x
-def freq_fmt(s):     return "%11.7f"%(float(s)/1e6,)
+def freq_fmt(s):
+    f = float(s)/1000.0
+    return f
 
 def trace(message=None,force=False):
     if debug or force:
         import inspect
         print "TR: ",inspect.currentframe().f_back.f_lineno,
         if not message is None:
-            print ':',message
+            print ':',message,
+        print ''
 
 # I tried to standardize the modes a little, you might want to just
 # return s or modify this to be more sophisticated.
@@ -99,12 +102,14 @@ def osa_set_callsign(code,prop,value):
 def osa_set_property(code,prop,value):
     return "%s\t\tset newQSO's %s to \"%s\"\n"%(code,prop,value,)
 
+def osa_set_numeric_property(code,prop,value):
+    return "%s\t\tset newQSO's %s to %s\n"%(code,prop,value,)
+
 def osa_set_cb_property(code,prop,value):
     trace()
     return "%s\t\tset callbook's %s to \"%s\"\n"%(code,prop,value,)
 
 def osa_lookup_qso(code):
-    trace('osa_lookup_qso')
     return "%s\t\tlookup newQSO\n\t\tset callbook to newQSO's callbook info\n"%(code,)
 
 def osa_postamble(code):
@@ -124,8 +129,8 @@ def inform_aether(env,debug=False,launch=True):
         trace('post-open')
 
     pre_lookup_env_to_aether = {
-                      fl_env_prefix + 'FREQUENCY' :
-                       ( freq_fmt, osa_set_property, {'prop':'frequency'} ),
+                      fl_env_prefix + 'LOG_FREQUENCY' :
+                       ( freq_fmt, osa_set_numeric_property, {'prop':'frequency'} ),
                       fl_env_prefix + 'MODEM' :
                        ( mode_fmt, osa_set_property, {'prop':'mode'}),
                       fl_env_prefix + 'LOG_RST_IN' :
@@ -154,10 +159,8 @@ def inform_aether(env,debug=False,launch=True):
                 trace('%s \t:\t%s'%(k,env[k],))
 
     script = osa_preamble()
-    csp = False
 
     trace()
-
     for d in [ pre_lookup_env_to_aether,
                callsign_actions,
                post_lookup_env_to_aether ]:
