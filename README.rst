@@ -23,6 +23,16 @@ Here is the macro text I use in the fldigi_ macro.:
 
 The above macro can be directly copied into your Log QSO Macro definition window in fldigi_.
 
+Release History
+---------------
+
+v0.4 :
+ * Updated to correct error rounding frequencies.
+
+v0.3: 
+ * General improvements.
+
+
 Arguments
 ---------
 
