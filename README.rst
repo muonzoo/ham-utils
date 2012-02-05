@@ -19,12 +19,17 @@ script or understand Python_ to make this work for you.
 Here is the macro text I use in the fldigi_ macro.:
 
 
- <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py & </EXEC>
+ <EXEC>$HOME/.fldigi/scripts/fldigi-aether-logger.py  & </EXEC>
 
 The above macro can be directly copied into your Log QSO Macro definition window in fldigi_.
 
 Release History
 ---------------
+
+v0.5:
+ * Updated to support a '--no-xxxx' argument which will skip logging
+ any FLDIGI environment variables that match the xxxx part of the arg
+ (case insensitive)
 
 v0.4 :
  * Updated to correct error rounding frequencies.
@@ -48,6 +53,14 @@ Arguments
 --debug:
   Print out key information of script execution on stdout, will appear
   in fldigi window.
+
+--no-xxxxx:
+  Skip logging any environment variable that matches xxxxx. (Case
+  insensitive). Can be used (for example) to skip recording the
+  frequency by using:
+
+  fldigi-aether-logger.py --no-freq 
+
 
 
 This presumes that this script is called fldigi-aether-logger.py AND

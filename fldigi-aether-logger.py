@@ -50,6 +50,7 @@ import os
 
 debug=False
 mandatory=False
+skip = []
 
 fl_env_prefix='FLDIGI_'
 def callsign_fmt(s): return s.strip()
@@ -168,11 +169,18 @@ def inform_aether(env,debug=False,launch=True):
         for k in d:
             trace()
             if k in env:
-                trace("processing %s"%(k,))
-                e2a=d[k]
-                trace(str(e2a[2]))
-                script = e2a[1](code=script,
-                                value = e2a[0](env[k]),**e2a[2])
+                skipping = False
+                for s in skip:
+                    if s.lower() in k.lower():
+                        trace('skipping '+k)
+                        skipping = True
+                        continue
+                if not skipping:
+                    trace("processing %s"%(k,))
+                    e2a=d[k]
+                    trace(str(e2a[2]))
+                    script = e2a[1](code=script,
+                                    value = e2a[0](env[k]),**e2a[2])
 
     trace()
     script = osa_postamble(script)
@@ -219,6 +227,9 @@ if __name__ == '__main__':
         elif argv[1] == '--no-launch':
             trace('will not launch aether')
             launch_arg = False
+        elif argv[1][:5] == '--no-':
+            skip.append(argv[1][5:])
+            trace('skipping any var matching: ' + skip[-1] )
         argv = argv[1:]
     trace('finished arg processing')
     inform_aether( d, launch=launch_arg,debug=debug)
